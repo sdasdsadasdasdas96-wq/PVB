@@ -1,0 +1,97 @@
+--// Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local task = task
+
+local player = Players.LocalPlayer
+local UseItemRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("UseItem")
+
+-- Wait for character
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+
+-- Helper: get Frost Grenade tool dynamically
+local function getGrenadeTool()
+    for _, tool in pairs(character:GetChildren()) do
+        if tool:IsA("Tool") and tool.Name:match("^%[x%d+%] Frost Grenade$") then
+            print("[DEBUG] Found grenade in character:", tool.Name)
+            return tool
+        end
+    end
+    local backpack = player:WaitForChild("Backpack")
+    for _, tool in pairs(backpack:GetChildren()) do
+        if tool:IsA("Tool") and tool.Name:match("^%[x%d+%] Frost Grenade$") then
+            print("[DEBUG] Found grenade in backpack:", tool.Name)
+            return tool
+        end
+    end
+    print("[DEBUG] No grenades found!")
+    return nil
+end
+
+-- Equip the grenade
+local function equipGrenade()
+    local tool = getGrenadeTool()
+    if tool and tool.Parent ~= character then
+        humanoid:EquipTool(tool)
+        task.wait(0.1) -- ensure equip
+        print("[DEBUG] Equipped grenade:", tool.Name)
+    end
+    return getGrenadeTool()
+end
+
+-- Get Brainrots
+local function getHighHealthBrainrots()
+    local brainrotsFolder = Workspace:WaitForChild("ScriptedMap"):WaitForChild("Brainrots")
+    local targets = {}
+    for _, b in pairs(brainrotsFolder:GetChildren()) do
+        local maxHealth = b:GetAttribute("MaxHealth") or 0
+        if maxHealth > 1000000 and b.PrimaryPart then
+            table.insert(targets, b)
+            print("[DEBUG] Found Brainrot:", b.Name, "Health:", maxHealth)
+        end
+    end
+    return targets
+end
+
+-- Throw grenade at one Brainrot
+local function throwGrenade(brainrot)
+    local tool = equipGrenade()
+    if not tool then
+        print("[DEBUG] No tool to throw!")
+        return false
+    end
+
+    local pos = brainrot.PrimaryPart.Position
+    print("[DEBUG] Throwing grenade at:", brainrot.Name, "Pos:", pos)
+
+    -- Fire the remote exactly like your working example
+    local args = {
+        {
+            Toggle = true,
+            Tool = tool,
+            Time = 0.0,
+            Pos = vector.create(pos.X, pos.Y, pos.Z)
+        }
+    }
+
+    print("[DEBUG] Firing remote with tool:", tool.Name)
+    UseItemRemote:FireServer(unpack(args))
+    return true
+end
+
+-- Main loop
+task.spawn(function()
+    while true do
+        local targets = getHighHealthBrainrots()
+        for _, b in pairs(targets) do
+            while b.Parent and getGrenadeTool() do
+                throwGrenade(b)
+                task.wait(0.05)
+            end
+        end
+        task.wait(0.25)
+    end
+end)

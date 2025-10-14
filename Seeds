@@ -1,0 +1,147 @@
+--// Services
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+
+--// Player + GUI + Remotes
+local player = Players.LocalPlayer
+local gui = player:WaitForChild("PlayerGui"):WaitForChild("Main")
+local buyItemRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("BuyItem")
+
+--// Seeds lists
+local normalSeeds = { -- seeds always bought normally
+    "Cactus Seed",
+    "Strawberry Seed",
+    "Pumpkin Seed",
+    "Sunflower Seed",
+    "Dragon Fruit Seed",
+    "Eggplant Seed",
+    "Watermelon Seed",
+    "Grape Seed",
+    "Cocotank Seed",
+    "Carnivorous Plant Seed",
+    "Mr Carrot Seed",
+    "Tomatrio Seed",
+    "Shroombino Seed",
+    "Mango Seed",
+    "King Limone Seed",
+}
+
+local spamSeeds = { -- seeds to spam at 00:02 -> 04:58
+    "Watermelon Seed",
+    "Grape Seed",
+    "Cocotank Seed",
+    "Carnivorous Plant Seed",
+    "Mr Carrot Seed",
+    "Tomatrio Seed",
+    "Shroombino Seed",
+    "Mango Seed",
+    "King Limone Seed",
+}
+
+--// Flags
+local spamActive = false
+
+--// Helpers
+local function getSeedsFrame()
+    return gui:FindFirstChild("Seeds")
+end
+
+local function getRestockLabel()
+    local seedsFrame = getSeedsFrame()
+    return seedsFrame and seedsFrame:FindFirstChild("Restock") or nil
+end
+
+local function getStock(seedName)
+    local seedsFrame = getSeedsFrame()
+    if not seedsFrame then return 0 end
+    local scrolling = seedsFrame:FindFirstChild("Frame") and seedsFrame.Frame:FindFirstChild("ScrollingFrame")
+    if not scrolling then return 0 end
+
+    local item = scrolling:FindFirstChild(seedName)
+    if not item then return 0 end
+
+    local stockLabel = item:FindFirstChild("Stock")
+    if not stockLabel then return 0 end
+
+    local stock = tonumber(stockLabel.Text:match("x(%d+)"))
+    return stock or 0
+end
+
+--// Always-active watcher (detects new stocks even mid-timer)
+task.spawn(function()
+    local lastStock = {}
+
+    while task.wait(0.3) do
+        for _, seedName in ipairs(normalSeeds) do
+            local stock = getStock(seedName)
+            local prev = lastStock[seedName] or 0
+
+            -- If stock increased (was restocked mid-cycle)
+            if stock > prev then
+                print("[DEBUG] Mid-cycle restock detected:", seedName, "x"..stock)
+                buyItemRemote:FireServer(seedName)
+            end
+
+            -- Always buy normal ones if available
+            if stock > 0 then
+                buyItemRemote:FireServer(seedName)
+            end
+
+            lastStock[seedName] = stock
+        end
+
+        -- For spam seeds (outside spamActive window)
+        if not spamActive then
+            for _, seedName in ipairs(spamSeeds) do
+                local stock = getStock(seedName)
+                local prev = lastStock[seedName] or 0
+
+                if stock > prev then
+                    print("[DEBUG] Mid-cycle restock detected:", seedName, "x"..stock)
+                    buyItemRemote:FireServer(seedName)
+                end
+
+                if stock > 0 then
+                    buyItemRemote:FireServer(seedName)
+                end
+
+                lastStock[seedName] = stock
+            end
+        end
+    end
+end)
+
+--// Spam loop (handles the timed spam burst)
+task.spawn(function()
+    while task.wait(0.25) do
+        local restockLabel = getRestockLabel()
+        if not restockLabel then continue end
+
+        local minutes, seconds = restockLabel.Text:match("(%d+):(%d+)")
+        minutes, seconds = tonumber(minutes), tonumber(seconds)
+        if not minutes or not seconds then continue end
+
+        -- Start spam
+        if minutes == 0 and seconds >= 2 and seconds <= 3 and not spamActive then
+            spamActive = true
+            print("[DEBUG] Starting spam loop")
+
+            task.spawn(function()
+                while spamActive do
+                    for _, seedName in ipairs(spamSeeds) do
+                        if getStock(seedName) > 0 then
+                            buyItemRemote:FireServer(seedName)
+                        end
+                    end
+                    task.wait(0.05)
+                end
+            end)
+        end
+
+        -- Stop spam
+        if minutes == 4 and seconds >= 58 and spamActive then
+            spamActive = false
+            print("[DEBUG] Stopping spam loop")
+        end
+    end
+end)

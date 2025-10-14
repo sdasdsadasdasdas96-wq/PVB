@@ -1,0 +1,17 @@
+-- Generated with Sigma Spy Github: https://github.com/depthso/Sigma-Spy
+-- Services
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Remote
+local EquipBestBrainrots = ReplicatedStorage.Remotes.EquipBestBrainrots -- RemoteEvent 
+
+-- Function to fire the remote
+local function runEquip()
+    EquipBestBrainrots:FireServer()
+end
+
+-- Loop to run every 3 minutes
+while true do
+    runEquip()
+    wait(180) -- Wait 180 seconds (3 minutes)
+end

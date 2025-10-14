@@ -1,0 +1,63 @@
+--// Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+--// Player references
+local player = Players.LocalPlayer
+local gui = player:WaitForChild("PlayerGui"):WaitForChild("Main")
+local buyGearRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("BuyGear")
+
+--// Gears to automatically buy
+local normalGears = {
+    "Water Bucket",
+    "Frost Grenade",
+}
+
+--// Config
+local checkInterval = 0.5
+local buyDelay = 0.25
+
+--// Cache previous stock
+local lastStock = {}
+
+--// Helper to get stock safely
+local function getStock(gearName)
+    local scrolling = gui:WaitForChild("Gears"):WaitForChild("Frame"):WaitForChild("ScrollingFrame")
+    local gear = scrolling:FindFirstChild(gearName)
+    if not gear then return 0 end
+
+    local stockLabel = gear:FindFirstChild("Stock")
+    if not stockLabel then return 0 end
+
+    -- Parse any number in the stock text (handles "x3 in stock")
+    local text = stockLabel.Text or ""
+    local num = tonumber(text:match("(%d+)")) or 0
+    return num
+end
+
+--// Buy all available stock with delay (synchronous)
+local function buyMultiple(gearName, count)
+    for i = 1, count do
+        buyGearRemote:FireServer(gearName, true)
+        print("[BUY]", gearName, "Purchase #" .. i .. "/" .. count)
+        task.wait(buyDelay)
+    end
+end
+
+--// Main watcher loop
+task.spawn(function()
+    while task.wait(checkInterval) do
+        for _, gearName in ipairs(normalGears) do
+            local stock = getStock(gearName)
+            local prev = lastStock[gearName] or 0
+
+            -- Detect restock mid-cycle
+            if stock > prev then
+                print("[RESTOCK DETECTED]", gearName, "x" .. stock)
+                buyMultiple(gearName, stock)
+            end
+
+            lastStock[gearName] = stock
+        end
+    end
+end)

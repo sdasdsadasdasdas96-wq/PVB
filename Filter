@@ -55,8 +55,6 @@ local ignoremutations = {}
 local ignoreMutationFor = {} -- ✅ Fixes your nil index issue
 
 local whitelist = {
-	["Bananita Dolphinita"] = {minWeight = 500.0},
-	["Burbaloni Lulliloli"] = {minWeight = 500.0},
 	["Bombardilo Crocodilo"] = {minWeight = 250.0},
 	["Bombini Gussini"] = {minWeight = 250.0},
 	["Baby Peperoncini And Marmellata"] = {minWeight = 250.0},

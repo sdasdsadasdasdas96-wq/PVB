@@ -1,0 +1,151 @@
+--// Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+--// Player & Remotes
+local player = Players.LocalPlayer
+local backpack = player:WaitForChild("Backpack")
+local favoriteRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("FavoriteItem")
+local sellRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ItemSell")
+
+--// Safe descendant finder
+local function waitForDescendant(parent, path)
+	local current = parent
+	for part in string.gmatch(path, "[^%.]+") do
+		current = current:WaitForChild(part)
+	end
+	return current
+end
+
+--// Inventory GUI Path (safe wait)
+local uiGridFrame = waitForDescendant(player, "PlayerGui.BackpackGui.Backpack.Inventory.ScrollingFrame.UIGridFrame")
+
+--// Cache of favorited IDs
+local favoritedCache = {}
+local function rebuildCache()
+	table.clear(favoritedCache)
+	for _, slot in ipairs(uiGridFrame:GetChildren()) do
+		local id = slot:GetAttribute("ID")
+		if id and slot:FindFirstChild("HeartIcon") then
+			favoritedCache[id] = true
+		end
+	end
+end
+
+-- Build initial cache
+rebuildCache()
+
+-- Keep cache updated
+uiGridFrame.ChildAdded:Connect(function(child)
+	task.defer(function()
+		local id = child:GetAttribute("ID")
+		if id and child:FindFirstChild("HeartIcon") then
+			favoritedCache[id] = true
+		end
+	end)
+end)
+uiGridFrame.ChildRemoved:Connect(function(child)
+	local id = child:GetAttribute("ID")
+	if id then favoritedCache[id] = nil end
+end)
+
+--// Config tables
+local allowedMutations = { "[Neon]", "[Rainbow]", "[UpsideDown]", "[Galactic]", "[Underworld]", "[Frozen]" }
+local ignoremutations = {}
+local ignoreMutationFor = {} -- ✅ Fixes your nil index issue
+
+local whitelist = {
+	["Bananita Dolphinita"] = {minWeight = 500.0},
+	["Burbaloni Lulliloli"] = {minWeight = 500.0},
+	["Bombardilo Crocodilo"] = {minWeight = 250.0},
+	["Bombini Gussini"] = {minWeight = 250.0},
+	["Baby Peperoncini And Marmellata"] = {minWeight = 250.0},
+	["Frigo Camelo"] = {minWeight = 250.0},
+	["Pestoi Mortioni"] = {minWeight = 250.0},
+	["Giraffa Celeste"] = {minWeight = 150.0},
+	["Matteo"] = {minWeight = 150.0},
+	["Kiwissimo"] = {minWeight = 150.0},
+	["Tralalero Tralala"] = {minWeight = 150.0},
+	["Rexosaurus Hatcherini"] = {minWeight = 50.0},
+	["Pepito Di Pollo"] = {minWeight = 50.0},
+	["Meowtronzio"] = {minWeight = 50.0},
+	["Bangello"] = {minWeight = 50.0},
+	["El Tacorito"] = {minWeight = 50.0},
+}
+
+--// Weight extractor
+local function getWeight(tool)
+	if not tool or not tool.Name then return 0 end
+	local weightStr = string.match(tool.Name, "%[(%d+%.?%d*)%s*[Kk][Gg]%]")
+	return tonumber(weightStr) or 0
+end
+
+--// Whitelist checker
+local function isWhitelisted(tool)
+	if not tool or not tool.Name then return false end
+	local mutation, weightStr, namePart = string.match(tool.Name, "(%b[])%s*(%b[])%s*(.+)")
+	if not (mutation and weightStr and namePart) then return false end
+	local weight = tonumber(string.match(weightStr, "([%d%.]+)")) or 0
+
+	for whiteName, data in pairs(whitelist) do
+		if string.find(namePart, whiteName, 1, true) then
+			-- skip ignored mutations if any exist
+			if ignoreMutationFor and ignoreMutationFor[whiteName] then
+				return weight >= (data.minWeight or 0)
+			end
+
+			-- check for allowed mutations
+			for _, tag in ipairs(allowedMutations) do
+				if string.find(mutation, tag, 1, true) and weight >= (data.minWeight or 0) then
+					return true
+				end
+			end
+			return false
+		end
+	end
+	return false
+end
+
+--// Favoriting logic
+local favoritedIDs = {}
+
+local function safeFavorite(tool)
+	if not tool or not tool:GetAttribute("ID") then return end
+	local id = tool:GetAttribute("ID")
+
+	-- Skip if already favorited
+	if favoritedIDs[id] or favoritedCache[id] then return end
+
+	if isWhitelisted(tool) then
+		favoritedIDs[id] = true
+		favoriteRemote:FireServer(id)
+		print("[Whitelist] ⭐ Favorited:", tool.Name)
+	end
+end
+
+--// Favorite all in backpack
+local function favoriteAll()
+	for _, tool in ipairs(backpack:GetChildren()) do
+		if tool:IsA("Tool") then
+			safeFavorite(tool)
+		end
+	end
+end
+
+--// Auto-favorite new tools
+backpack.ChildAdded:Connect(function(child)
+	if child:IsA("Tool") then
+		task.wait(0.25)
+		safeFavorite(child)
+	end
+end)
+
+--// Periodic sell-all loop
+task.spawn(function()
+	while true do
+		task.wait(3)
+		favoriteAll()
+		task.wait(0.1)
+		sellRemote:FireServer()
+	end
+end)

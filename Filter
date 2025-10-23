@@ -50,11 +50,13 @@ uiGridFrame.ChildRemoved:Connect(function(child)
 end)
 
 --// Config tables
-local allowedMutations = { "[Neon]", "[Rainbow]", "[UpsideDown]", "[Galactic]", "[Underworld]", "[Frozen]" }
+local allowedMutations = { "[Neon]", "[Rainbow]", "[UpsideDown]", "[Galactic]", "[Underworld]", "[Frozen]", "[Ruby]" }
 local ignoremutations = {}
 local ignoreMutationFor = {} -- ✅ Fixes your nil index issue
 
 local whitelist = {
+	["Bananita Dolphinita"] = {minWeight = 500.0},
+	["Burbaloni Lulliloli"] = {minWeight = 500.0},
 	["Bombardilo Crocodilo"] = {minWeight = 250.0},
 	["Bombini Gussini"] = {minWeight = 250.0},
 	["Baby Peperoncini And Marmellata"] = {minWeight = 250.0},
@@ -69,6 +71,8 @@ local whitelist = {
 	["Meowtronzio"] = {minWeight = 50.0},
 	["Bangello"] = {minWeight = 50.0},
 	["El Tacorito"] = {minWeight = 50.0},
+	["Los Tralaleritos"] = {minWeight = 50.0},
+	["Gattolini Owlini"] = {minWeight = 70.0},
 }
 
 --// Weight extractor

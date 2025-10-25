@@ -76,12 +76,10 @@ local function isValidBrainrot(b)
     local Health = tonumber(b:GetAttribute("Health")) or 0
 
     if IGNORED_NAMES[name] then
-        warn("[DEBUG] Ignored by name:", name)
         return false
     end
 
     if not VALID_MUTATIONS[mutation] then
-        warn("[DEBUG] Invalid mutation:", name, "Mutation:", mutation)
         return false
     end
 
@@ -99,13 +97,8 @@ local function getTargetBrainrots()
     for _, b in pairs(folder:GetChildren()) do
         if b.PrimaryPart and isValidBrainrot(b) then
             table.insert(valid, b)
-        else
-            if not b.PrimaryPart then
-                warn("[DEBUG] Skipped - no PrimaryPart:", b.Name)
-            end
         end
     end
-    warn("[DEBUG] Found", #valid, "valid Brainrots")
     return valid
 end
 
@@ -113,13 +106,11 @@ end
 local function throwGrenade(brainrot)
     local tool = equipGrenade()
     if not tool then
-        warn("[DEBUG] No Frost Grenade tool found!")
         return false
     end
 
     local pos = brainrot.PrimaryPart and brainrot.PrimaryPart.Position
     if not pos then
-        warn("[DEBUG] Skipped - Brainrot has no PrimaryPart:", brainrot.Name)
         return false
     end
 
@@ -133,7 +124,6 @@ local function throwGrenade(brainrot)
     }
 
     UseItemRemote:FireServer(unpack(args))
-    warn("[DEBUG] Threw Frost Grenade at:", brainrot:GetAttribute("Brainrot"), "HP:", brainrot:GetAttribute("Health"))
     return true
 end
 
@@ -149,38 +139,4 @@ task.spawn(function()
         end
         task.wait(0.25)
     end
-end)
-
---// Debug: Print all Brainrots every 5 seconds (even invalid ones)
-task.spawn(function()
-	while true do
-		local folder = Workspace:WaitForChild("ScriptedMap"):WaitForChild("MissionBrainrots")
-		print("----- [DEBUG] Brainrot Status (" .. os.date("%X") .. ") -----")
-
-		local anyFound = false
-		for _, b in pairs(folder:GetChildren()) do
-			if b:IsA("Model") and b:GetAttribute("Brainrot") then
-				anyFound = true
-				local name = b:GetAttribute("Brainrot")
-				local rarity = tostring(b:GetAttribute("Rarity") or "Unknown")
-				local mutation = tostring(b:GetAttribute("Mutation") or "None")
-				local Health = tonumber(b:GetAttribute("Health")) or b:GetAttribute("Health")
-
-				print(string.format(
-					"Name: %s | Rarity: %s | Mutation: %s | Health: %s",
-					name,
-					rarity,
-					mutation,
-					tostring(Health)
-				))
-			end
-		end
-
-		if not anyFound then
-			warn("[DEBUG] No Brainrots found in MissionBrainrots folder.")
-		end
-
-		print("----------------------------------------------")
-		task.wait(5)
-	end
 end)

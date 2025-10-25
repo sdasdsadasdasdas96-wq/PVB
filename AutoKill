@@ -21,10 +21,10 @@ local IGNORED_NAMES = {
     ["Chef Crabacadabra"] = true,
     ["Dragon Cannelloni"] = true,
     ["Wardenelli Brickatoni"] = true,
-    ["Cerberinno Hotdoggino"] = true
-    ["Snailini Discozini"] = true
-    ["Elefante Formaggio"] = true
-    ["Strawberry Camaleonte"] = true
+    ["Cerberinno Hotdoggino"] = true,
+    ["Snailini Discozini"] = true,
+    ["Elefante Formaggio"] = true,
+    ["Strawberry Camaleonte"] = true,
 
 }
 

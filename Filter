@@ -65,7 +65,7 @@ local whitelist = {
 	["Giraffa Celeste"] = {minWeight = 150.0},
 	["Matteo"] = {minWeight = 150.0},
 	["Kiwissimo"] = {minWeight = 150.0},
-	["Tralalero Tralala"] = {minWeight = 150.0},
+	["Constructione Tralala"] = {minWeight = 150.0},
 	["Rexosaurus Hatcherini"] = {minWeight = 50.0},
 	["Pepito Di Pollo"] = {minWeight = 50.0},
 	["Meowtronzio"] = {minWeight = 50.0},

@@ -22,6 +22,10 @@ local IGNORED_NAMES = {
     ["Dragon Cannelloni"] = true,
     ["Wardenelli Brickatoni"] = true,
     ["Cerberinno Hotdoggino"] = true
+    ["Snailini Discozini"] = true
+    ["Elefante Formaggio"] = true
+    ["Strawberry Camaleonte"] = true
+
 }
 
 local VALID_MUTATIONS = {

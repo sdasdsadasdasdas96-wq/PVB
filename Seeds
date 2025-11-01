@@ -24,6 +24,7 @@ local normalSeeds = { -- seeds always bought normally
     "Shroombino Seed",
     "Mango Seed",
     "King Limone Seed",
+    "Starfruit Seed",
 }
 
 local spamSeeds = { -- seeds to spam at 00:02 -> 04:58
@@ -36,6 +37,7 @@ local spamSeeds = { -- seeds to spam at 00:02 -> 04:58
     "Shroombino Seed",
     "Mango Seed",
     "King Limone Seed",
+    "Starfruit Seed",
 }
 
 --// Flags

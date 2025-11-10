@@ -1,6 +1,7 @@
 --// Services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
 
 --// Player + GUI + Remotes
 local player = Players.LocalPlayer
@@ -40,10 +41,20 @@ local spamSeeds = { -- seeds to spam at 00:02 -> 04:58
     "Starfruit Seed",
 }
 
+--// Only these seeds will be sent to webhook
+local alertSeeds = {
+    ["Mango Seed"] = true,
+    ["King Limone Seed"] = true,
+    ["Starfruit Seed"] = true,
+}
+
+--// Webhook URL (user-provided)
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1437323672518918196/PQDnYVnEtunwhuYrSUNXwmmuxKShwMgm7wbNWh8ZOxb4IOLBKPLX_o0d2-OugOeNeI0I"
+
 --// Flags
 local spamActive = false
 
---// Helpers
+--// Helpers to read GUI
 local function getSeedsFrame()
     return gui:FindFirstChild("Seeds")
 end
@@ -69,10 +80,85 @@ local function getStock(seedName)
     return stock or 0
 end
 
+--// Webhook sender with fallbacks and safe pcall usage
+local function sendWebhook(content)
+    if not WEBHOOK_URL or WEBHOOK_URL == "" then
+        warn("[WEBHOOK] No webhook URL configured")
+        return false, "no webhook"
+    end
+
+    local payload = nil
+    local ok, enc = pcall(function() return HttpService:JSONEncode({ content = content }) end)
+    if ok then
+        payload = enc
+    else
+        -- fallback simple JSON escape - minimal
+        local esc = content:gsub('\\', '\\\\'):gsub('"', '\\"')
+        payload = '{"content":"'..esc..'"}'
+    end
+
+    -- Try syn.request (commonly available in many executors)
+    if type(syn) == "table" and syn.request then
+        local suc,resp = pcall(function()
+            return syn.request({
+                Url = WEBHOOK_URL,
+                Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = payload,
+            })
+        end)
+        if suc then return true, resp end
+    end
+
+    -- Try http_request / request / HttpPost variants often present in other exploit environments
+    if type(http_request) == "function" then
+        local suc,resp = pcall(function()
+            return http_request({
+                Url = WEBHOOK_URL,
+                Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = payload,
+            })
+        end)
+        if suc then return true, resp end
+    end
+
+    if type(request) == "function" then
+        local suc,resp = pcall(function()
+            return request({
+                Url = WEBHOOK_URL,
+                Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = payload,
+            })
+        end)
+        if suc then return true, resp end
+    end
+
+    -- Last resort: use HttpService:PostAsync if HttpEnabled
+    local okPost, resPost = pcall(function()
+        if HttpService.HttpEnabled then
+            return HttpService:PostAsync(WEBHOOK_URL, payload, Enum.HttpContentType.ApplicationJson)
+        else
+            error("HttpService is not enabled")
+        end
+    end)
+
+    if okPost then
+        return true, resPost
+    else
+        -- Provide a clear warning for user (matching the message you saw)
+        warn(("[WEBHOOK] Failed to send webhook: %s"):format(tostring(resPost)))
+        return false, tostring(resPost)
+    end
+end
+
+--// Track last seen stock per seed and last alert sent (to avoid duplicates)
+local lastStock = {}
+local lastAlertStock = {} -- seed -> last stock value when we alerted
+
 --// Always-active watcher (detects new stocks even mid-timer)
 task.spawn(function()
-    local lastStock = {}
-
     while task.wait(0.3) do
         for _, seedName in ipairs(normalSeeds) do
             local stock = getStock(seedName)
@@ -82,6 +168,22 @@ task.spawn(function()
             if stock > prev then
                 print("[DEBUG] Mid-cycle restock detected:", seedName, "x"..stock)
                 buyItemRemote:FireServer(seedName)
+
+                -- If this is an alert seed, forward to webhook (only once per restock)
+                if alertSeeds[seedName] then
+                    local lastAlert = lastAlertStock[seedName] or 0
+                    if stock ~= lastAlert then
+                        -- format message; mention the user ID you provided
+                        local message = ("Seed In stock <@896193017126453308> %s"):format(seedName)
+                        local ok, err = sendWebhook(message)
+                        if not ok then
+                            warn("[WEBHOOK] HttpService is not enabled in this environment. Cannot send webhook for "..seedName)
+                        else
+                            print("[WEBHOOK] Sent alert for", seedName)
+                        end
+                        lastAlertStock[seedName] = stock
+                    end
+                end
             end
 
             -- Always buy normal ones if available
@@ -101,6 +203,20 @@ task.spawn(function()
                 if stock > prev then
                     print("[DEBUG] Mid-cycle restock detected:", seedName, "x"..stock)
                     buyItemRemote:FireServer(seedName)
+
+                    if alertSeeds[seedName] then
+                        local lastAlert = lastAlertStock[seedName] or 0
+                        if stock ~= lastAlert then
+                            local message = ("*** Seed In stock <@896193017126453308> %s"):format(seedName)
+                            local ok, err = sendWebhook(message)
+                            if not ok then
+                                warn("[WEBHOOK] HttpService is not enabled in this environment. Cannot send webhook for "..seedName)
+                            else
+                                print("[WEBHOOK] Sent alert for", seedName)
+                            end
+                            lastAlertStock[seedName] = stock
+                        end
+                    end
                 end
 
                 if stock > 0 then

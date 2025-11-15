@@ -28,9 +28,6 @@ local normalSeeds = { -- seeds always bought normally
 }
 
 local spamSeeds = { -- seeds to spam at 00:02 -> 04:58
-    "Watermelon Seed",
-    "Grape Seed",
-    "Cocotank Seed",
     "Carnivorous Plant Seed",
     "Mr Carrot Seed",
     "Tomatrio Seed",

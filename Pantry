@@ -153,10 +153,10 @@ while true do
     if paused then
         task.wait(0.5)
     else
-        task.wait(1.5)
+        task.wait(3)
 
         -- Give the UI time to load (2 seconds)
-        if waitWhileNotPaused(2) then continue end
+        if waitWhileNotPaused(5) then continue end
 
         local rawWanted = getWantedPlant()
         local cleanedWanted = getPlantName(rawWanted)
@@ -171,7 +171,7 @@ while true do
                 warn("You are OUT of " .. cleanedWanted .. ", rejoining to refresh pantry...")
             end
 
-            if waitWhileNotPaused(1) then continue end
+            if waitWhileNotPaused(4) then continue end
             forceRejoin()
             return
         end
@@ -182,9 +182,9 @@ while true do
 
         -- 3) After turn-in, teleport normally
         if not paused then
-            task.wait(1.75)
+            task.wait(3.5)
             TeleportService:Teleport(game.PlaceId, player)
-            task.wait(5)
+            task.wait(7.5)
         else
             print("[PlantScript] Teleport skipped due to pause")
         end

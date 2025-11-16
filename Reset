@@ -1,0 +1,36 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local gui = player:WaitForChild("PlayerGui")
+
+-- Path to the GUI element we care about
+local mainComplete = gui:WaitForChild("Main")
+    :WaitForChild("SurfaceGui")
+    :WaitForChild("Main_Complete")
+
+-- Remote
+local InteractRemote = ReplicatedStorage
+    :WaitForChild("Remotes")
+    :WaitForChild("Events")
+    :WaitForChild("PlantPantry")
+    :WaitForChild("Interact")
+
+-- Optional debounce to prevent multiple fires in a single visible period
+local fired = false
+
+-- Function to check visibility
+local function checkVisibility()
+    if mainComplete.Visible and not fired then
+        fired = true
+        InteractRemote:FireServer("ResetRequest")
+    elseif not mainComplete.Visible then
+        fired = false -- reset debounce when hidden
+    end
+end
+
+-- Connect to Visible property changes
+mainComplete:GetPropertyChangedSignal("Visible"):Connect(checkVisibility)
+
+-- Initial check in case it's already visible
+checkVisibility()

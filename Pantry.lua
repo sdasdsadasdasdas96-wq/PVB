@@ -1,0 +1,192 @@
+--// Services
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+
+-- Allowed plants
+local allowedPlants = {
+    ["cactus"] = true,
+}
+
+-- Pause flag
+local paused = false
+
+-- Toggle pause when J is pressed
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.J then
+        paused = not paused
+        if paused then
+            print("[PlantScript] PAUSED")
+        else
+            print("[PlantScript] RESUMED")
+        end
+    end
+end)
+
+-- Wait n seconds but cancel if paused
+local function waitWhileNotPaused(seconds)
+    local elapsed = 0
+    while elapsed < seconds do
+        if paused then return true end -- signal to cancel
+        task.wait(0.1)
+        elapsed += 0.1
+    end
+    return false
+end
+
+-- Clean ANY plant name
+local function getPlantName(raw)
+    local name = raw or ""
+    name = name:gsub("%b[]", "") -- remove brackets
+    name = name:gsub("%s+", " ")
+    name = name:match("^%s*(.-)%s*$") or name -- trim
+    return name:lower()
+end
+
+-- Safe inventory load
+local function waitForInventory()
+    while not player.Character do task.wait(0.1) end
+    while not player:FindFirstChild("Backpack") do task.wait(0.1) end
+
+    local bp = player.Backpack
+    local tries = 0
+    while #bp:GetChildren() == 0 and tries < 50 do
+        tries += 1
+        task.wait(0.2)
+        if paused then return false end
+    end
+
+    return true
+end
+
+-- Find a tool in Character or Backpack
+local function findPlant(target)
+    target = target:lower()
+    if not waitForInventory() then return nil end
+
+    local tools = {}
+
+    for _, t in ipairs(player.Backpack:GetChildren()) do
+        if t:IsA("Tool") then table.insert(tools, t) end
+    end
+
+    if player.Character then
+        for _, t in ipairs(player.Character:GetChildren()) do
+            if t:IsA("Tool") then table.insert(tools, t) end
+        end
+    end
+
+    for _, t in ipairs(tools) do
+        if getPlantName(t.Name) == target then
+            return t
+        end
+    end
+
+    return nil
+end
+
+-- Get wanted plant from UI
+local function getWantedPlant()
+    local path = workspace:WaitForChild("ScriptedMap")
+        :WaitForChild("PlantPantry")
+        :WaitForChild("FavoriteFood")
+        :WaitForChild("Billboard")
+        :WaitForChild("Reward")
+        :WaitForChild("Icon")
+        :WaitForChild("Reward_Detail")
+
+    return path.Text
+end
+
+-- Kick + Rejoin
+local function forceRejoin()
+    local lp = Players.LocalPlayer
+    lp:Kick("Rejoining...")
+
+    task.delay(1.5, function()
+        TeleportService:Teleport(game.PlaceId, lp)
+    end)
+end
+
+-- Turn-in logic (pause-safe)
+local function turnInPlant(tool)
+    local char = player.Character
+    while not char do
+        task.wait(0.1)
+        if paused then return false end
+    end
+
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    while not humanoid do
+        task.wait(0.1)
+        if paused then return false end
+    end
+
+    humanoid:EquipTool(tool)
+
+    -- Wait for FeedPrompt
+    local feedPrompt
+    repeat
+        local pantry = workspace.ScriptedMap:FindFirstChild("PlantPantry")
+        feedPrompt = pantry and pantry:FindFirstChild("TurnIn") and pantry.TurnIn:FindFirstChild("FeedPrompt")
+        task.wait(0.1)
+        if paused then return false end
+    until feedPrompt and feedPrompt.Enabled
+
+    -- Feed with small increments, allow pause
+    feedPrompt:InputHoldBegin()
+    if waitWhileNotPaused(2) then
+        feedPrompt:InputHoldEnd()
+        print("[PlantScript] Turn-in canceled due to pause")
+        return false
+    end
+    feedPrompt:InputHoldEnd()
+
+    return true
+end
+
+-- MAIN LOOP
+while true do
+    -- Skip everything if paused
+    if paused then
+        task.wait(0.5)
+    else
+        task.wait(1.5)
+
+        -- Give the UI time to load (2 seconds)
+        if waitWhileNotPaused(2) then continue end
+
+        local rawWanted = getWantedPlant()
+        local cleanedWanted = getPlantName(rawWanted)
+
+        -- 1) Check if pantry wants disallowed plant OR you have none
+        local plantTool = findPlant(cleanedWanted)
+
+        if not allowedPlants[cleanedWanted] or not plantTool then
+            if not allowedPlants[cleanedWanted] then
+                warn("Pantry wants disallowed plant: " .. tostring(cleanedWanted))
+            else
+                warn("You are OUT of " .. cleanedWanted .. ", rejoining to refresh pantry...")
+            end
+
+            if waitWhileNotPaused(1) then continue end
+            forceRejoin()
+            return
+        end
+
+        -- 2) Turn in plant normally
+        local turnedIn = turnInPlant(plantTool)
+        if not turnedIn then continue end -- canceled by pause
+
+        -- 3) After turn-in, teleport normally
+        if not paused then
+            task.wait(1.75)
+            TeleportService:Teleport(game.PlaceId, player)
+            task.wait(5)
+        else
+            print("[PlantScript] Teleport skipped due to pause")
+        end
+    end
+end

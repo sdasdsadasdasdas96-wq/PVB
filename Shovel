@@ -1,0 +1,104 @@
+--// Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+--// Player
+local player = Players.LocalPlayer
+
+--// Remotes
+local remotesFolder = ReplicatedStorage:WaitForChild("Remotes")
+local removeRemote = remotesFolder:WaitForChild("RemoveItem")
+
+--// Configuration
+local pickupDelay = 0.05 -- seconds between removals
+local maxWaitTime = 15
+local running = true
+
+-- List of all plant names you want to remove
+local targetPlants = {
+	"Cactus",
+}
+
+--// Killswitch (press K to stop)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if input.KeyCode == Enum.KeyCode.K then
+		running = false
+		print("[DEBUG] Script stopped via Killswitch.")
+	end
+end)
+
+--// Helper: remove a plant by ID
+local function removePlant(id)
+	removeRemote:FireServer(id)
+	print("[DEBUG] Removed plant ID: " .. id)
+	wait(pickupDelay)
+end
+
+--// Main Loop
+while running do
+	local plantContainerFolder = Workspace:WaitForChild("Plots"):WaitForChild("1"):WaitForChild("Plants")
+
+	local startTime = tick()
+	local plantIDs = {}
+
+	repeat
+		plantIDs = {}
+
+		for _, plant in ipairs(plantContainerFolder:GetChildren()) do
+			if table.find(targetPlants, plant.Name) and plant:IsA("Model") then
+				local id = plant:GetAttribute("ID")
+				if id and typeof(id) == "string" then
+					table.insert(plantIDs, id)
+				end
+			end
+		end
+
+		if #plantIDs == 0 and tick() - startTime < maxWaitTime then
+			wait(0.5)
+		else
+			break
+		end
+	until not running
+
+	if #plantIDs == 0 then
+		print("[DEBUG] No plants found to remove. Waiting 5 seconds...")
+		wait(5)
+		continue
+	end
+
+	print("[DEBUG] Found " .. #plantIDs .. " plants to remove.")
+	
+	-- Try removing them
+	for _, id in ipairs(plantIDs) do
+		if not running then break end
+		removePlant(id)
+	end
+
+	-- Wait and check again if any remain after 10 seconds
+	wait(2)
+
+	local remaining = {}
+	for _, plant in ipairs(plantContainerFolder:GetChildren()) do
+		if table.find(targetPlants, plant.Name) and plant:IsA("Model") then
+			local id = plant:GetAttribute("ID")
+			if id and typeof(id) == "string" then
+				table.insert(remaining, id)
+			end
+		end
+	end
+
+	if #remaining > 0 then
+		print("[DEBUG] Retrying removal for " .. #remaining .. " remaining plants...")
+		for _, id in ipairs(remaining) do
+			if not running then break end
+			removePlant(id)
+		end
+	else
+		print("[DEBUG] All plants successfully removed.")
+	end
+
+	print("[DEBUG] Restarting loop in 2 seconds...")
+	wait(2)
+end

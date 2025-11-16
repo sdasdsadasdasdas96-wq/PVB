@@ -1,0 +1,20 @@
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+-- Attribute name we use to check if teleport happened
+local attrName = "HasTeleportedToCoords"
+
+-- Check if we have teleported before
+if not player:GetAttribute(attrName) then
+    -- Mark that we teleported, so it won't happen again
+    player:SetAttribute(attrName, true)
+
+    -- Wait for character
+    character = player.Character or player.CharacterAdded:Wait()
+    local hrp = character:WaitForChild("HumanoidRootPart")
+
+    -- Teleport position
+    local targetPos = Vector3.new(-167, 13, 1017)
+
+    hrp.CFrame = CFrame.new(targetPos)
+end

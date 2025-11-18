@@ -10,7 +10,7 @@ local allowedPlants = {
 }
 
 -- Pause flag
-local paused = false
+local paused = true
 
 -- Toggle pause when J is pressed
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
